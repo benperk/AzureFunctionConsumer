@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 using static System.Console;
 using static System.Convert;
@@ -14,6 +15,7 @@ using Microsoft.Azure.ServiceBus;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Microsoft.WindowsAzure.Storage.Queue;
+using Microsoft.WindowsAzure.Storage.Table;
 
 using Newtonsoft.Json;
 
@@ -27,6 +29,7 @@ namespace AzureFunctionConsumer
         private static HttpClient httpClient;
         private static IQueueClient queueClient;
         private static DocumentClient documentClient;
+        private static CloudTableClient tableStorageClient;
         static Program()
         {
             httpClient = new HttpClient();
@@ -71,7 +74,7 @@ namespace AzureFunctionConsumer
                             break;
                         case 8:
                             WriteLine("You selected Table Storage.");
-                            WriteLine("NOT YET IMPLEMENTED.");
+                            MainStorageTableAsync(args).GetAwaiter().GetResult();
                             break;
                         case 9:
                             WriteLine("You selected Microsoft Graph.");
@@ -124,7 +127,7 @@ namespace AzureFunctionConsumer
             return ToInt32(result);
         }
         #region Blob Storage
-        //Use the Event Grid trigger instead of the Blob storage trigger for blob-only storage accounts
+        //Use the Event Grid trigger instead of the Blob storage trigger for high consumption blob-only storage accounts
         private static async Task MainBlobStorageAsync(string[] args)
         {
             WriteLine("Enter your Blob Storage connection string:");
@@ -161,7 +164,19 @@ namespace AzureFunctionConsumer
             {
                 WriteLine($"Blob container '{blobContainer.Name}' Exists.");
             }
+
             await SendBlobsToBlobStorage(BlobsToSend, blobContainer);
+
+            WriteLine("Press Y to delete the blobs.");
+
+            if (ReadLine() == "Y")
+            {
+                await DeleteBlobs(BlobsToSend, blobContainer);
+            }
+            else
+            {
+                WriteLine("No blobs deleted.");
+            }
         }
         private static async Task SendBlobsToBlobStorage(int numBlobsToSend, CloudBlobContainer container)
         {
@@ -187,6 +202,31 @@ namespace AzureFunctionConsumer
             }
 
             WriteLine($"{numBlobsToSend} blobs sent.");
+        }
+        private static async Task DeleteBlobs(int numBlobsToDelete, CloudBlobContainer container)
+        {
+            for (var i = 0; i < numBlobsToDelete; i++)
+            {
+                try
+                {
+                    var blob = $"Blob {i}";
+                    WriteLine($"Deleting blob: {blob} named helloworld{i}.txt from {container.Name}");
+                    CloudBlockBlob blockBlob = container.GetBlockBlobReference($"helloworld{i}.txt");
+                    await blockBlob.DeleteIfExistsAsync();
+                }
+                catch (StorageException se)
+                {
+                    WriteLine($"StorageException: {se.Message}");
+                }
+                catch (Exception ex)
+                {
+                    WriteLine($"{DateTime.Now} > Exception: {ex.Message}");
+                }
+
+                await Task.Delay(10);
+            }
+
+            WriteLine($"{numBlobsToDelete} blobs deleted.");
         }
         #endregion
         #region Event Hubs
@@ -225,14 +265,15 @@ namespace AzureFunctionConsumer
         }
         private static async Task SendMessagesToEventHub(int numMessagesToSend)
         {
-            //eventHubClient.CreateBatch(BatchOptions options)
             for (var i = 0; i < numMessagesToSend; i++)
             {
                 try
                 {
                     var message = $"Message-{i}";
-                    WriteLine($"Sending message: {message}");
-                    await eventHubClient.SendAsync(new EventData(Encoding.UTF8.GetBytes(message)));
+
+                    var json = "{\"message\":\"" + message + "\"}";
+                    WriteLine($"Sending message: {json}");
+                    await eventHubClient.SendAsync(new EventData(Encoding.UTF8.GetBytes(json)));
                 }
                 catch (EventHubsCommunicationException ehce)
                 {
@@ -297,7 +338,7 @@ namespace AzureFunctionConsumer
             {
                 try
                 {
-                    var message = $"Message {i}";
+                    var message = $"Message {i} - {Guid.NewGuid().ToString()}";
                     WriteLine($"Sending message: {message}");
                     await storageAccountQueue.AddMessageAsync(new CloudQueueMessage(message));
                 }
@@ -597,5 +638,131 @@ namespace AzureFunctionConsumer
             public decimal UnitPrice { get; set; }
         }
         #endregion
+        #region Azure Table
+        private static async Task MainStorageTableAsync(string[] args)
+        {
+            WriteLine("Enter your Table Storage connection string:");
+            var TableStorageConnectionString = ReadLine();
+            while (TableStorageConnectionString.Length == 0)
+            {
+                WriteLine("Try again, this value must have a length > 0");
+                WriteLine("Enter your Table Storage connection string:");
+                TableStorageConnectionString = ReadLine();
+            }
+            WriteLine("Enter your Table name:");
+            var TableName = ReadLine();
+            while (TableName.Length == 0)
+            {
+                WriteLine("Try again, this value must have a length > 0");
+                WriteLine("Enter your Table name:");
+                TableName = ReadLine();
+            }
+            WriteLine("Enter number of rows to add: ");
+            int StorageRowsToSend = 0;
+            while (!int.TryParse(ReadLine(), out StorageRowsToSend))
+            {
+                WriteLine("Try again, this value must be numeric.");
+            }
+            CloudStorageAccount TableStorageAccount = CloudStorageAccount.Parse(TableStorageConnectionString);
+            tableStorageClient = TableStorageAccount.CreateCloudTableClient();
+            CloudTable table = tableStorageClient.GetTableReference(TableName);
+            if (await table.CreateIfNotExistsAsync())
+            {
+                WriteLine($"Queue '{table.Name}' Created.");
+            }
+            else
+            {
+                WriteLine($"Queue '{table.Name}' Exists.");
+            }
+            await SendMessagesToTableStorageAccount(StorageRowsToSend, table);
+
+            WriteLine($"Press Y to delete table {TableName}.");
+
+            if (ReadLine() == "Y")
+            {
+                await DeleteTableRows(table);
+            }
+            else
+            {
+                WriteLine("No rows deleted.");
+            }
+        }
+        private static async Task SendMessagesToTableStorageAccount(int numRowToInsert, CloudTable table)
+        {
+            var pKey = Guid.NewGuid().ToString();
+
+            for (var i = 0; i < numRowToInsert; i++)
+            {
+                try
+                {
+                    var row = $"Row #{i} - {Guid.NewGuid().ToString()}";
+
+                    TableStorageRowEntity tsre = new TableStorageRowEntity(pKey, Guid.NewGuid().ToString())
+                        { message = row , dateTime = DateTime.Now.ToString() };                                       
+                    
+                    TableOperation insertOperation = TableOperation.InsertOrMerge(tsre);
+                    TableResult result = table.ExecuteAsync(insertOperation).Result;
+                    WriteLine($"Inserted: {row}");
+                }
+                catch (StorageException se)
+                {
+                    WriteLine($"StorageException: {se.Message}");
+                }
+                catch (Exception ex)
+                {
+                    WriteLine($"{DateTime.Now} > Exception: {ex.Message}");
+                }
+
+                await Task.Delay(10);
+            }
+
+            WriteLine($"{numRowToInsert} rows inserted.");
+        }
+        private static async Task DeleteTableRows(CloudTable table)
+        {
+            int counter = 0;
+            try
+            {                
+                TableContinuationToken token = null;
+                TableQuery<TableStorageRowEntity> query = new TableQuery<TableStorageRowEntity>()
+                    .Select(new List<string> { "PartitionKey" });
+                var rows = await table.ExecuteQuerySegmentedAsync<TableStorageRowEntity>(query, token);
+
+                foreach (var item in rows)
+                {
+                    WriteLine($"Deleting row: {item.RowKey} ");
+                    TableOperation deleteOperation = TableOperation.Delete(item);
+                    TableResult result = await table.ExecuteAsync(deleteOperation);                    
+                    counter++;
+                }
+            }
+            catch (StorageException se)
+            {
+                WriteLine($"StorageException: {se.Message}");
+            }
+            catch (Exception ex)
+            {
+                WriteLine($"{DateTime.Now} > Exception: {ex.Message}");
+            }
+
+            await Task.Delay(10);
+
+            WriteLine($"{counter.ToString()} rows deleted.");
+        }
+        #endregion
+    }
+
+    public class TableStorageRowEntity : TableEntity
+    {
+        public string message { get; set; }
+        public string dateTime { get; set; }
+
+        public TableStorageRowEntity() { }
+
+        public TableStorageRowEntity(string pKey, string rKey)
+        {
+            PartitionKey = pKey;
+            RowKey = rKey;
+        }
     }
 }
