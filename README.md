@@ -9,5 +9,7 @@ To see which version of the .NET Core runtime you have installed, enter **dotnet
 
 Start the program by runnung:  **dotnet AzureFunctionConsumer.dll**
 
+![starting the Azure Function Consumer](images/AFC002.PNG)
+
 [LINK1]: https://www.thebestcsharpprogrammerintheworld.com/2020/07/06/azure-functions-labs-information-and-setup-instructions/
 [LINK2]: https://github.com/dotnet/core
