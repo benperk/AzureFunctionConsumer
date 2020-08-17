@@ -23,13 +23,16 @@ The Azure Function Consumer currently supports sending data transmissions to:
 Download the AzureFunctionConsumer.dll and its dependencies from [here][LINK3].  Take the most current version.
 
 ## Examples ##
-The following examples illustrate how to trigger and HTTP and an Event Hub bound Azure Function
+The following examples illustrate how to trigger an HTTP, an Event Hub, Storage Queue and an Azure Cosmos DB bound Azure Function
 
 ### HTTP Triggered Azure Function ###
 ![Calling an HTTP triggered Azure Function](images/AFC003.PNG)
 
-### Event Hub Ttriggered Function ###
+### Event Hub Triggered Function ###
 ![Invoking an Event Hub triggered Azure Function](images/AFC004.PNG)
+
+## Storge Queue Triggered Function ##
+![Invoking a Storage Queue triggered Azure Function](images/AFC005.PNG)
 
 [LINK1]: https://www.thebestcsharpprogrammerintheworld.com/2020/07/06/azure-functions-labs-information-and-setup-instructions/
 [LINK2]: https://github.com/dotnet/core
