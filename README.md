@@ -31,12 +31,16 @@ The following examples illustrate how to trigger an HTTP, an Event Hub, Storage 
 ### Event Hub Triggered Function ###
 ![Invoking an Event Hub triggered Azure Function](images/AFC004.PNG)
 
-## Storge Queue Triggered Function ##
+### Storge Queue Triggered Function ###
 ![Invoking a Storage Queue triggered Azure Function](images/AFC005.PNG)
 
-## Azure Cosmos DB Triggered Function ##
+### Azure Cosmos DB Triggered Function ###
 ![Invoking an Azure Cosmos DB triggered Azure Function](images/AFC006.PNG)
+
+## Report an issue or have a improvment idea ##
+If you experience an unexpected exceptiion or have an awkward experience, log it [here][LINK4].  If you would like to recommend a new feature log it [here][LINK4] as well.
 
 [LINK1]: https://www.thebestcsharpprogrammerintheworld.com/2020/07/06/azure-functions-labs-information-and-setup-instructions/
 [LINK2]: https://github.com/dotnet/core
 [LINK3]: https://github.com/benperk/AzureFunctionConsumer/releases
+[LINK4]: https://github.com/benperk/AzureFunctionConsumer/issues
