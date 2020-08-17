@@ -19,5 +19,11 @@ The Azure Function Consumer currently supports sending data transmissions to:
 + Cosmos DB
 + HTTP Trigger
 
+## Examples ##
+The following examples illustrate how to trigger and HTTP and an Event Hub bound Azure Function
+
+### HTTP Triggered Azure Function ###
+![starting the Azure Function Consumer](images/AFC003.PNG)
+
 [LINK1]: https://www.thebestcsharpprogrammerintheworld.com/2020/07/06/azure-functions-labs-information-and-setup-instructions/
 [LINK2]: https://github.com/dotnet/core
