@@ -5,6 +5,8 @@ The Azure Function consumer requires the dotnet runtime, which can be downoaded 
 
 To see which version of the .NET Core runtime you have installed, enter **dotnet --version**
 
+![checking .net code version](images/AFC001.PNG)
+
 Start the program by runnung:  **dotnet AzureFunctionConsumer.dll**
 
 [LINK1]: https://www.thebestcsharpprogrammerintheworld.com/2020/07/06/azure-functions-labs-information-and-setup-instructions/
