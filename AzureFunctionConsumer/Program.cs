@@ -368,7 +368,7 @@ namespace AzureFunctionConsumer
                 WriteLine("Enter your HTTP Trigger URL:");
                 HTTPTriggerUrl = ReadLine();
             }
-            WriteLine("Enter HTTP Trigger function key:");
+            WriteLine("Enter HTTP Trigger function key or enter: anonymous");
             var HTTPTriggerFunctionKey = ReadLine();
             while (HTTPTriggerFunctionKey.Length == 0)
             {
@@ -376,23 +376,35 @@ namespace AzureFunctionConsumer
                 WriteLine("Enter HTTP Trigger function key:");
                 HTTPTriggerFunctionKey = ReadLine();
             }
-            WriteLine("Enter your name or any name:");
-            var Name = ReadLine();
-            while (Name.Length == 0)
+            WriteLine("Enter POST or GET:");
+            var Method = ReadLine();
+            while (Method.Length == 0)
             {
                 WriteLine("Try again, this value must have a length > 0");
-                WriteLine("Enter any value for Query String usage:");
-                Name = ReadLine();
+                WriteLine("Enter POST or GET:");
+                HTTPTriggerFunctionKey = ReadLine();
             }
+            string Name = String.Empty;
+            if (Method == "POST")
+            {
+                WriteLine("Enter your name or any name:");
+                Name = ReadLine();
+                while (Name.Length == 0)
+                {
+                    WriteLine("Try again, this value must have a length > 0");
+                    WriteLine("Enter any value for Query String usage:");
+                    Name = ReadLine();
+                }
+            }            
             WriteLine("Enter number of requests to send: ");
             int HTTPRequestsToSend = 0;
             while (!int.TryParse(ReadLine(), out HTTPRequestsToSend))
             {
                 WriteLine("Try again, this value must be numeric.");
             }
-            await SendHTTPRequests(HTTPRequestsToSend, HTTPTriggerUrl, HTTPTriggerFunctionKey, Name);
+            await SendHTTPRequests(HTTPRequestsToSend, HTTPTriggerUrl, HTTPTriggerFunctionKey, Method, Name);
         }
-        private static async Task SendHTTPRequests(int numHTTPRequestsToSend, string Url, string FunctionKey, string Name)
+        private static async Task SendHTTPRequests(int numHTTPRequestsToSend, string Url, string FunctionKey, string Method, string Name)
         {
             for (var i = 0; i < numHTTPRequestsToSend; i++)
             {
@@ -400,13 +412,52 @@ namespace AzureFunctionConsumer
                 {
                     var httpRequest = $"HTTP request {i}";
                     WriteLine($"Sending request: {httpRequest}");
-                    var json = "{\"name\":\"" + Name + "\"}";
-                    var encodedContent = new StringContent(json, Encoding.UTF8, "application/json");
-                    var response = await httpClient.PostAsync(Url + "?code=" + FunctionKey, encodedContent).ConfigureAwait(false);
+
+                    if (Method == "POST")
+                    {
+                        var json = "{\"name\":\"" + Name + "\"}";
+                        var encodedContent = new StringContent(json, Encoding.UTF8, "application/json");
+                        if (FunctionKey == "anonymous")
+                        {
+                            response = await httpClient.PostAsync(Url, encodedContent).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            response = await httpClient.PostAsync(Url + "?code=" + FunctionKey, encodedContent).ConfigureAwait(false);
+                        }                        
+                    }
+                    else if (Method == "GET")
+                    {
+                        if (FunctionKey == "anonymous")
+                        {
+                            response = await httpClient.GetAsync(Url);
+                            for (int t = 0; t < 10; t++)
+                            {
+                                Thread rThread = new Thread(() => httpClient.GetAsync(Url));
+                                rThread.Start();
+                                //if (t % 10 == 0)
+                                //{
+                                //    System.Threading.Thread.Sleep(2000);
+                                //    WriteLine($"Sleeping...");
+                                //}
+                                WriteLine($"Thread {t} is sending an anonymous GET to {Url} now: {DateTime.Now}");
+                            }
+                        }
+                        else
+                        {
+                            response = await httpClient.GetAsync(Url + "?code=" + FunctionKey);
+                        }                            
+                    }
+                    else
+                    {
+                        throw new Exception("Method must be POST or GET");
+                    }
+                    
                     WriteLine($"The response code is: {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
                     var resultContent = await response.Content.ReadAsStringAsync();
                     WriteLine(resultContent);
+                    WriteLine("If you execute an anonymous GET, then the number of sent requests will burst 10 concurrent requests that many times.");
                 }
                 catch (HttpRequestException hre)
                 {
