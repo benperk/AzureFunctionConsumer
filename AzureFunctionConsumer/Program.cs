@@ -30,7 +30,6 @@ namespace AzureFunctionConsumer
         private static IQueueClient queueClient;
         private static DocumentClient documentClient;
         private static CloudTableClient tableStorageClient;
-        private static HttpResponseMessage response;
         static Program()
         {
             httpClient = new HttpClient();
