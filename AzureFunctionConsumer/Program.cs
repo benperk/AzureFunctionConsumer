@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -90,7 +91,7 @@ namespace AzureFunctionConsumer
                             break;
                         case 12:
                             WriteLine("You selected Timer.");
-                            WriteLine("This one is run completely from the portal.");
+                            WriteLine("This one is triggered with using a CRON schedule.");
                             break;
                         case 13:
                             WriteLine("Bye.");
@@ -120,7 +121,7 @@ namespace AzureFunctionConsumer
             WriteLine("9.  Microsoft Graph");
             WriteLine("10. SendGrid");
             WriteLine("11. SignalR");
-            WriteLine("12. SignalR");
+            WriteLine("12. Timer");
             WriteLine("13. Exit");
             WriteLine("Which would you like to trigger?  Enter '13' to exit.");
             var result = ReadLine();
@@ -395,7 +396,7 @@ namespace AzureFunctionConsumer
                     WriteLine("Enter any value for Query String usage:");
                     Name = ReadLine();
                 }
-            }            
+            }
             WriteLine("Enter number of requests to send: ");
             int HTTPRequestsToSend = 0;
             while (!int.TryParse(ReadLine(), out HTTPRequestsToSend))
@@ -406,6 +407,7 @@ namespace AzureFunctionConsumer
         }
         private static async Task SendHTTPRequests(int numHTTPRequestsToSend, string Url, string FunctionKey, string Method, string Name)
         {
+            HttpResponseMessage response = new HttpResponseMessage();
             for (var i = 0; i < numHTTPRequestsToSend; i++)
             {
                 try
@@ -424,7 +426,7 @@ namespace AzureFunctionConsumer
                         else
                         {
                             response = await httpClient.PostAsync(Url + "?code=" + FunctionKey, encodedContent).ConfigureAwait(false);
-                        }                        
+                        }
                     }
                     else if (Method == "GET")
                     {
@@ -435,6 +437,7 @@ namespace AzureFunctionConsumer
                             {
                                 Thread rThread = new Thread(() => httpClient.GetAsync(Url));
                                 rThread.Start();
+                                //This is a burst mode code segment, be careful if you do this, costs, ddos and latency
                                 //if (t % 10 == 0)
                                 //{
                                 //    System.Threading.Thread.Sleep(2000);
@@ -446,13 +449,13 @@ namespace AzureFunctionConsumer
                         else
                         {
                             response = await httpClient.GetAsync(Url + "?code=" + FunctionKey);
-                        }                            
+                        }
                     }
                     else
                     {
                         throw new Exception("Method must be POST or GET");
                     }
-                    
+
                     WriteLine($"The response code is: {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
                     var resultContent = await response.Content.ReadAsStringAsync();
@@ -635,7 +638,8 @@ namespace AzureFunctionConsumer
                     var message = $"Document {i}";
                     WriteLine($"Deleting document: {message}");
                     ResourceResponse<Document> response = await documentClient.DeleteDocumentAsync(
-                            UriFactory.CreateDocumentUri(cosmosDatabaseName, cosmosCollectionName, i.ToString()));
+                            UriFactory.CreateDocumentUri(cosmosDatabaseName, cosmosCollectionName, i.ToString()),
+                            new RequestOptions() { PartitionKey = new PartitionKey(Undefined.Value) });
                 }
                 catch (DocumentClientException dce)
                 {
@@ -749,8 +753,8 @@ namespace AzureFunctionConsumer
                     var row = $"Row #{i} - {Guid.NewGuid().ToString()}";
 
                     TableStorageRowEntity tsre = new TableStorageRowEntity(pKey, Guid.NewGuid().ToString())
-                        { message = row , dateTime = DateTime.Now.ToString() };                                       
-                    
+                    { message = row, dateTime = DateTime.Now.ToString() };
+
                     TableOperation insertOperation = TableOperation.InsertOrMerge(tsre);
                     TableResult result = table.ExecuteAsync(insertOperation).Result;
                     WriteLine($"Inserted: {row}");
@@ -773,7 +777,7 @@ namespace AzureFunctionConsumer
         {
             int counter = 0;
             try
-            {                
+            {
                 TableContinuationToken token = null;
                 TableQuery<TableStorageRowEntity> query = new TableQuery<TableStorageRowEntity>()
                     .Select(new List<string> { "PartitionKey" });
@@ -783,7 +787,7 @@ namespace AzureFunctionConsumer
                 {
                     WriteLine($"Deleting row: {item.RowKey} ");
                     TableOperation deleteOperation = TableOperation.Delete(item);
-                    TableResult result = await table.ExecuteAsync(deleteOperation);                    
+                    TableResult result = await table.ExecuteAsync(deleteOperation);
                     counter++;
                 }
             }
@@ -802,7 +806,6 @@ namespace AzureFunctionConsumer
         }
         #endregion
     }
-
     public class TableStorageRowEntity : TableEntity
     {
         public string message { get; set; }
