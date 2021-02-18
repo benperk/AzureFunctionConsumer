@@ -19,6 +19,7 @@ using Microsoft.WindowsAzure.Storage.Queue;
 using Microsoft.WindowsAzure.Storage.Table;
 
 using Newtonsoft.Json;
+using System.Linq;
 
 namespace AzureFunctionConsumer
 {
@@ -430,6 +431,7 @@ namespace AzureFunctionConsumer
                     }
                     else if (Method == "GET")
                     {
+                        WriteLine("If you execute an anonymous GET, then the number of sent requests will burst 10 concurrent requests that many times.");
                         if (FunctionKey == "anonymous")
                         {
                             response = await httpClient.GetAsync(Url);
@@ -459,8 +461,7 @@ namespace AzureFunctionConsumer
                     WriteLine($"The response code is: {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
                     var resultContent = await response.Content.ReadAsStringAsync();
-                    WriteLine(resultContent);
-                    WriteLine("If you execute an anonymous GET, then the number of sent requests will burst 10 concurrent requests that many times.");
+                    WriteLine(resultContent);                    
                 }
                 catch (HttpRequestException hre)
                 {
@@ -584,10 +585,10 @@ namespace AzureFunctionConsumer
                 {
                     Uri collectionUri = UriFactory.CreateDocumentCollectionUri(CosmosDatabaseName, CosmosCollectionName);
                     await SendDocumentsToCosmos(CosmosDocumentsToSend, collectionUri);
-                    WriteLine("Press Y to delete these document.");
+                    WriteLine($"Press Y to delete **ALL** documents in the '{CosmosCollectionName}' container.");
                     if (ReadLine() == "Y")
                     {
-                        await DeleteCosmosDocuments(CosmosDocumentsToSend, CosmosDatabaseName, CosmosCollectionName);
+                        await DeleteCosmosDocuments(CosmosDatabaseName, CosmosCollectionName, collectionUri);
                     }
                     else
                     {
@@ -606,13 +607,15 @@ namespace AzureFunctionConsumer
         }
         private static async Task SendDocumentsToCosmos(int numDocumentsToSend, Uri collectionUri)
         {
+            Random r = new Random();
+
             for (var i = 0; i < numDocumentsToSend; i++)
             {
                 try
                 {
-                    var message = $"Document {i}";
-                    CosmosDocument cosmosDocument = CreateCosmosDocument(i.ToString());
-                    WriteLine($"Sending document: {message}");
+                    var Id = r.Next(1, 2147483647).ToString();                    
+                    CosmosDocument cosmosDocument = CreateCosmosDocument(Id);
+                    WriteLine($"Sending document with Id = : {Id}");
                     await documentClient.CreateDocumentAsync(collectionUri, cosmosDocument);
                 }
                 catch (DocumentClientException dce)
@@ -629,16 +632,21 @@ namespace AzureFunctionConsumer
 
             WriteLine($"{numDocumentsToSend} documents sent.");
         }
-        private static async Task DeleteCosmosDocuments(int numDocumentsToDelete, string cosmosDatabaseName, string cosmosCollectionName)
+        private static async Task DeleteCosmosDocuments(string cosmosDatabaseName, string cosmosCollectionName, Uri collectionUri)
         {
-            for (var i = 0; i < numDocumentsToDelete; i++)
+            FeedOptions fe = new FeedOptions();
+            var documents =
+                from d in documentClient.CreateDocumentQuery(collectionUri, fe).ToList()
+                select d;
+
+            int i = 0;
+            foreach (var item in documents)
             {
+                WriteLine($"Deleting document with Id: {item.Id}");
                 try
                 {
-                    var message = $"Document {i}";
-                    WriteLine($"Deleting document: {message}");
                     ResourceResponse<Document> response = await documentClient.DeleteDocumentAsync(
-                            UriFactory.CreateDocumentUri(cosmosDatabaseName, cosmosCollectionName, i.ToString()),
+                            UriFactory.CreateDocumentUri(cosmosDatabaseName, cosmosCollectionName, item.Id),
                             new RequestOptions() { PartitionKey = new PartitionKey(Undefined.Value) });
                 }
                 catch (DocumentClientException dce)
@@ -649,11 +657,10 @@ namespace AzureFunctionConsumer
                 {
                     WriteLine($"Error occurred: {ex.Message}");
                 }
-
                 await Task.Delay(10);
+                i++;
             }
-
-            WriteLine($"{numDocumentsToDelete} documents deleted.");
+            WriteLine($"{i.ToString()} documents deleted.");
         }
         private static CosmosDocument CreateCosmosDocument(string documentId)
         {
