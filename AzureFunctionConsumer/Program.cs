@@ -638,20 +638,28 @@ namespace AzureFunctionConsumer
             var documents =
                 from d in documentClient.CreateDocumentQuery(collectionUri, fe).ToList()
                 select d;
-
+                        
             int i = 0;
             foreach (var item in documents)
-            {
-                WriteLine($"Deleting document with Id: {item.Id}");
+            {                
                 try
                 {
                     ResourceResponse<Document> response = await documentClient.DeleteDocumentAsync(
                             UriFactory.CreateDocumentUri(cosmosDatabaseName, cosmosCollectionName, item.Id),
-                            new RequestOptions() { PartitionKey = new PartitionKey(Undefined.Value) });
+                            new RequestOptions() { PartitionKey = new PartitionKey(item.Id) }); //Undefined.Value
+
+                    WriteLine($"Deleted document with Id: {item.Id}");
                 }
                 catch (DocumentClientException dce)
                 {
-                    WriteLine($"{dce.StatusCode} error occurred: {dce.Message}");
+                    if (dce.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        WriteLine($"The Partition Key for the container must be '/id' for the delete to work.");
+                    }
+                    else
+                    {
+                        WriteLine($"{dce.StatusCode} error occurred: {dce.Message}");
+                    }                    
                 }
                 catch (Exception ex)
                 {
