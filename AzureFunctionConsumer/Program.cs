@@ -148,36 +148,53 @@ namespace AzureFunctionConsumer
                 WriteLine("Enter the Blob Container name: (lowercase only letters!)");
                 BlobContainerName = ReadLine().ToLower();
             }
-            WriteLine("Enter number of blobs to add: ");
-            int BlobsToSend = 0;
-            while (!int.TryParse(ReadLine(), out BlobsToSend))
-            {
-                WriteLine("Try again, this value must be numeric.");
-            }
             CloudStorageAccount storageAccount = CloudStorageAccount.Parse(BlobStorageConnectionString);
             blobClient = storageAccount.CreateCloudBlobClient();
-            WriteLine("Creating blob container...");
             CloudBlobContainer blobContainer = blobClient.GetContainerReference(BlobContainerName);
-            if (await blobContainer.CreateIfNotExistsAsync())
+
+            WriteLine("Enter A to add blobs or S to search the blob container:");
+            var AddOrSearch = ReadLine();
+            while (AddOrSearch != "A" && AddOrSearch != "S")
             {
-                WriteLine($"Blob container '{blobContainer.Name}' Created.");
+                WriteLine("Try again, this value must be either A or S");
+                WriteLine("Enter A to add blobs or S to search the blob container:");
+                AddOrSearch = ReadLine().ToUpper();
+            }
+            if (AddOrSearch == "S")
+            {
+                await SearchBlobsAsync(blobContainer);
             }
             else
             {
-                WriteLine($"Blob container '{blobContainer.Name}' Exists.");
-            }
+                WriteLine("Enter number of blobs to add: ");
+                int BlobsToSend = 0;
+                while (!int.TryParse(ReadLine(), out BlobsToSend))
+                {
+                    WriteLine("Try again, this value must be numeric.");
+                }
+                WriteLine("Creating blob container...");
+                //CloudBlobContainer blobContainer = blobClient.GetContainerReference(BlobContainerName);
+                if (await blobContainer.CreateIfNotExistsAsync())
+                {
+                    WriteLine($"Blob container '{blobContainer.Name}' Created.");
+                }
+                else
+                {
+                    WriteLine($"Blob container '{blobContainer.Name}' Exists.");
+                }
 
-            await SendBlobsToBlobStorage(BlobsToSend, blobContainer);
+                await SendBlobsToBlobStorage(BlobsToSend, blobContainer);
 
-            WriteLine("Press Y to delete the blobs.");
+                WriteLine("Press Y to delete the blobs.");
 
-            if (ReadLine() == "Y")
-            {
-                await DeleteBlobs(BlobsToSend, blobContainer);
-            }
-            else
-            {
-                WriteLine("No blobs deleted.");
+                if (ReadLine() == "Y")
+                {
+                    await DeleteBlobs(BlobsToSend, blobContainer);
+                }
+                else
+                {
+                    WriteLine("No blobs deleted.");
+                }
             }
         }
         private static async Task SendBlobsToBlobStorage(int numBlobsToSend, CloudBlobContainer container)
@@ -229,6 +246,112 @@ namespace AzureFunctionConsumer
             }
 
             WriteLine($"{numBlobsToDelete} blobs deleted.");
+        }
+        private static async Task SearchBlobsAsync(CloudBlobContainer container)
+        {
+            if (await container.ExistsAsync())
+            {
+                WriteLine($"Enter the path to search, leave blank to search the entire '{container.Name}' container:");
+                WriteLineWithColor(true);
+                WriteLine($"Ex: blobreceipts/hostId/namespace.functionName.Run");
+                WriteLineWithColor(false);
+                var prefix = @ReadLine();
+
+                WriteLine($"Enter the start date by counting the number of days from today on which the search should start.");
+                WriteLineWithColor(true);
+                WriteLine($"Ex: 1 is {DateTime.Now.AddDays(-1)} (yesterday) and 5 is {DateTime.Now.AddDays(-1)} (5 days ago)");
+                WriteLineWithColor(false);
+                int startDate = (ToInt32(ReadLine()) * -1);
+
+                WriteLine($"Enter the end date by counting the number of days from today on which the search should end.");
+                WriteLineWithColor(true);
+                WriteLine($"Enter 0 for now {DateTime.Now}");
+                WriteLineWithColor(false);
+                int endDate = (ToInt32(ReadLine()) * -1);
+                if (endDate == 0) endDate = 1; //Seems this logic didn't work when endDate was 0, but nothing can already exist which is added tomorrow...
+
+                if (startDate > endDate)
+                {
+                    WriteLine($"Start date {DateTime.Now.AddDays(startDate)} " +
+                        $"cannot come before end date {DateTime.Now.AddDays(endDate)}, start over.");
+                    return;
+                }
+                WriteLineWithColor(true);
+                WriteLine($"Searching '{container.Name} -> {prefix}' from {DateTime.Now.AddDays(startDate)} " +
+                    $"to {DateTime.Now.AddDays(endDate)}");
+                WriteLineWithColor(false);
+
+                try
+                {
+                    int maxResults = 500;
+                    BlobContinuationToken continuationToken = null;
+                    CloudBlob blob;
+                    IEnumerable<IListBlobItem> blobList;
+
+                    do
+                    {
+                        BlobResultSegment resultSegment = await container.ListBlobsSegmentedAsync(prefix,
+                            true, BlobListingDetails.Metadata, maxResults, continuationToken, null, null);
+
+                        blobList = resultSegment.Results.OfType<CloudBlob>()
+                            .Where(b => b.Properties.Created >= DateTime.Today.AddDays(startDate) &&
+                            b.Properties.Created <= DateTime.Today.AddDays(endDate))
+                            .Select(b => b);
+
+                        foreach (var blobItem in blobList)
+                        {
+                            blob = (CloudBlob)blobItem;
+                            await blob.FetchAttributesAsync();
+                            WriteLine($"Blob name: {blob.Name} - last modified on {blob.Properties.LastModified}");
+                        }
+                        continuationToken = resultSegment.ContinuationToken;
+
+                    } while (continuationToken != null);
+
+                    if (blobList.Count() > 0)
+                    {
+                        WriteLine("Would you like to remove/reprocess a blob? Y/N ");
+                        var delete = ReadLine();
+                        while (delete == "Y")
+                        {
+                            //should repopulate blobList and check there are blobs to delete
+                            WriteLine("Enter the path and blob name you would like to remove/reprocess: ");
+                            WriteLineWithColor(true);
+                            WriteLine($"Ex: {((CloudBlob)blobList.First()).Name}");
+                            WriteLineWithColor(false);
+                            var path = ReadLine();
+                            
+                            CloudBlockBlob blockBlob = container.GetBlockBlobReference(path);
+                            await blockBlob.DeleteIfExistsAsync();
+                            WriteLine($"Deleted {path} from {container.Name}");
+
+                            WriteLine("Would you like to remove/reprocess another blob? Y/N ");
+                            delete = ReadLine();
+                        }                        
+                    }
+                }
+                catch (StorageException e)
+                {
+                    WriteLine(e.Message);
+                    ReadLine();
+                }                
+            }
+            else
+            {
+                WriteLine($"Blob container '{container.Name}' doesn't exist.  Please start over.");
+            }
+        }
+        public static void WriteLineWithColor(bool enable)
+        {
+            if (enable)
+            {
+                Console.BackgroundColor = ConsoleColor.DarkGreen;
+                Console.ForegroundColor = ConsoleColor.Black;
+            }
+            else
+            {
+                Console.ResetColor();
+            }
         }
         #endregion
         #region Event Hubs
@@ -461,7 +584,7 @@ namespace AzureFunctionConsumer
                     WriteLine($"The response code is: {response.StatusCode}");
                     response.EnsureSuccessStatusCode();
                     var resultContent = await response.Content.ReadAsStringAsync();
-                    WriteLine(resultContent);                    
+                    WriteLine(resultContent);
                 }
                 catch (HttpRequestException hre)
                 {
@@ -613,7 +736,7 @@ namespace AzureFunctionConsumer
             {
                 try
                 {
-                    var Id = r.Next(1, 2147483647).ToString();                    
+                    var Id = r.Next(1, 2147483647).ToString();
                     CosmosDocument cosmosDocument = CreateCosmosDocument(Id);
                     WriteLine($"Sending document with Id = : {Id}");
                     await documentClient.CreateDocumentAsync(collectionUri, cosmosDocument);
@@ -638,10 +761,10 @@ namespace AzureFunctionConsumer
             var documents =
                 from d in documentClient.CreateDocumentQuery(collectionUri, fe).ToList()
                 select d;
-                        
+
             int i = 0;
             foreach (var item in documents)
-            {                
+            {
                 try
                 {
                     ResourceResponse<Document> response = await documentClient.DeleteDocumentAsync(
@@ -659,7 +782,7 @@ namespace AzureFunctionConsumer
                     else
                     {
                         WriteLine($"{dce.StatusCode} error occurred: {dce.Message}");
-                    }                    
+                    }
                 }
                 catch (Exception ex)
                 {
