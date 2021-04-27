@@ -259,7 +259,7 @@ namespace AzureFunctionConsumer
 
                 WriteLine($"Enter the start date by counting the number of days from today on which the search should start.");
                 WriteLineWithColor(true);
-                WriteLine($"Ex: 1 is {DateTime.Now.AddDays(-1)} (yesterday) and 5 is {DateTime.Now.AddDays(-1)} (5 days ago)");
+                WriteLine($"Ex: 1 is {DateTime.Now.AddDays(-1)} (yesterday) and 5 is {DateTime.Now.AddDays(-5)} (5 days ago)");
                 WriteLineWithColor(false);
                 int startDate = (ToInt32(ReadLine()) * -1);
 
