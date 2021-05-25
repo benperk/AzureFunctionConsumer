@@ -199,6 +199,10 @@ namespace AzureFunctionConsumer
         }
         private static async Task SendBlobsToBlobStorage(int numBlobsToSend, CloudBlobContainer container)
         {
+            Random r = new Random();
+            var number = r.Next(1, 10);
+            string blobContent = string.Empty;
+
             for (var i = 0; i < numBlobsToSend; i++)
             {
                 try
@@ -206,7 +210,13 @@ namespace AzureFunctionConsumer
                     var blob = $"Blob {i}";
                     WriteLine($"Sending blob: {blob} named helloworld{i}.txt to {container.Name}");
                     CloudBlockBlob blockBlob = container.GetBlockBlobReference($"helloworld{i}.txt");
-                    blockBlob.UploadTextAsync($"Hello, World! {i}").Wait();
+
+                    for (int n = 0; n < number; n++)
+                    {
+                        blobContent = blobContent + Guid.NewGuid().ToString("N");
+                    }
+
+                    await blockBlob.UploadTextAsync(blobContent);
                 }
                 catch (StorageException se)
                 {
@@ -252,21 +262,21 @@ namespace AzureFunctionConsumer
             if (await container.ExistsAsync())
             {
                 WriteLine($"Enter the path to search, leave blank to search the entire '{container.Name}' container:");
-                WriteLineWithColor(true);
+                WriteLineWithGreenColor(true);
                 WriteLine($"Ex: blobreceipts/hostId/namespace.functionName.Run");
-                WriteLineWithColor(false);
+                WriteLineWithGreenColor(false);
                 var prefix = @ReadLine();
 
                 WriteLine($"Enter the start date by counting the number of days from today on which the search should start.");
-                WriteLineWithColor(true);
+                WriteLineWithGreenColor(true);
                 WriteLine($"Ex: 1 is {DateTime.Now.AddDays(-1)} (yesterday) and 5 is {DateTime.Now.AddDays(-5)} (5 days ago)");
-                WriteLineWithColor(false);
+                WriteLineWithGreenColor(false);
                 int startDate = (ToInt32(ReadLine()) * -1);
 
                 WriteLine($"Enter the end date by counting the number of days from today on which the search should end.");
-                WriteLineWithColor(true);
+                WriteLineWithGreenColor(true);
                 WriteLine($"Enter 0 for now {DateTime.Now}");
-                WriteLineWithColor(false);
+                WriteLineWithGreenColor(false);
                 int endDate = (ToInt32(ReadLine()) * -1);
                 if (endDate == 0) endDate = 1; //Seems this logic didn't work when endDate was 0, but nothing can already exist which is added tomorrow...
 
@@ -276,10 +286,10 @@ namespace AzureFunctionConsumer
                         $"cannot come before end date {DateTime.Now.AddDays(endDate)}, start over.");
                     return;
                 }
-                WriteLineWithColor(true);
+                WriteLineWithGreenColor(true);
                 WriteLine($"Searching '{container.Name} -> {prefix}' from {DateTime.Now.AddDays(startDate)} " +
                     $"to {DateTime.Now.AddDays(endDate)}");
-                WriteLineWithColor(false);
+                WriteLineWithGreenColor(false);
 
                 try
                 {
@@ -316,24 +326,32 @@ namespace AzureFunctionConsumer
                         {
                             //should repopulate blobList and check there are blobs to delete
                             WriteLine("Enter the path and blob name you would like to remove/reprocess: ");
-                            WriteLineWithColor(true);
+                            WriteLineWithGreenColor(true);
                             WriteLine($"Ex: {((CloudBlob)blobList.First()).Name}");
-                            WriteLineWithColor(false);
+                            WriteLineWithGreenColor(false);
                             var path = ReadLine();
-                            
+
                             CloudBlockBlob blockBlob = container.GetBlockBlobReference(path);
                             await blockBlob.DeleteIfExistsAsync();
                             WriteLine($"Deleted {path} from {container.Name}");
 
                             WriteLine("Would you like to remove/reprocess another blob? Y/N ");
                             delete = ReadLine();
-                        }                        
+                        }
                     }
                 }
                 catch (StorageException e)
                 {
                     WriteLine(e.Message);
                     ReadLine();
+                }
+
+                if (container.Name.ToLower() != "azure-webjobs-hosts")
+                {
+                    WriteLineWithYellowColor(true);
+                    WriteLine($"NOTE: you searched '{container.Name} -> {prefix}'.  You need to search in the " +
+                        "azure-webjobs-hosts container if you want to reprocess a blob.");
+                    WriteLineWithYellowColor(false);
                 }                
             }
             else
@@ -341,11 +359,23 @@ namespace AzureFunctionConsumer
                 WriteLine($"Blob container '{container.Name}' doesn't exist.  Please start over.");
             }
         }
-        public static void WriteLineWithColor(bool enable)
+        public static void WriteLineWithGreenColor(bool enable)
         {
             if (enable)
             {
                 Console.BackgroundColor = ConsoleColor.DarkGreen;
+                Console.ForegroundColor = ConsoleColor.Black;
+            }
+            else
+            {
+                Console.ResetColor();
+            }
+        }
+        public static void WriteLineWithYellowColor(bool enable)
+        {
+            if (enable)
+            {
+                Console.BackgroundColor = ConsoleColor.DarkYellow;
                 Console.ForegroundColor = ConsoleColor.Black;
             }
             else
