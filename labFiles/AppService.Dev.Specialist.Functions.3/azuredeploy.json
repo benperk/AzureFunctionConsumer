@@ -56,17 +56,28 @@
     },
     {
       "type": "Microsoft.Web/serverfarms",
-      "apiVersion": "2020-12-01",
+      "apiVersion": "2018-02-01",
       "name": "[variables('hostingPlanName')]",
       "location": "[parameters('location')]",
-      "kind": "linux",
+      "kind": "functionapp",
       "sku": {
         "name": "Y1",
-        "tier": "Dynamic"
+        "tier": "Dynamic",
+        "size": "Y1",
+        "family": "Y",
+        "capacity": 0
       },
       "properties": {
         "name": "[variables('hostingPlanName')]",
-        "computeMode": "Dynamic"
+        "computeMode": "Dynamic",
+        "perSiteScaling": false,
+        "maximumElasticWorkerCount": 1,
+        "isSpot": false,
+        "reserved": true,
+        "isXenon": false,
+        "hyperV": false,
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0
       }
     },
     {
@@ -83,7 +94,7 @@
       }
     },
     {
-      "apiVersion": "2020-12-01",
+      "apiVersion": "2018-11-01",
       "type": "Microsoft.Web/sites",
       "name": "[variables('functionAppName')]",
       "location": "[parameters('location')]",
@@ -134,7 +145,9 @@
               "value": "true"
             }
           ],
-          "use32BitWorkerProcess": "[parameters('use32BitWorkerProcess')]"
+          "use32BitWorkerProcess": "[parameters('use32BitWorkerProcess')]",
+          "numberOfWorkers": 1,
+          "linuxFxVersion": "Python|3.9"
         }
       }
     },
