@@ -132,6 +132,10 @@
               "value": "[listkeys(resourceId('Microsoft.Eventhub/namespaces/authorizationRules', variables('eventHubNamespaceName'), 'RootManageSharedAccessKey'), '2017-04-01').primaryConnectionString]"
             },
             {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "1"
+            },
+            {
               "name": "AzureWebJobsDisableHomepage",
               "value": "true"
             }
