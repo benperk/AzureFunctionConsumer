@@ -9,3 +9,4 @@ ARM Template for deploying lab for AppService DEV Specialist Certification - Azu
 2.	An Azure Function Dynamic App Sevice Plan
 3.	An Azure Function App
 4.	An Application Insights Resource
+5. Uses the ZIPDEPLOY extension to deploy Function source code
