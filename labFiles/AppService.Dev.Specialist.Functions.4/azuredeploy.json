@@ -111,7 +111,7 @@
               "value": "true"
             },
             {
-              "name": "HTTP_FUNCTION_CANCEL",
+              "name": "HTTP_TRIGGER_CANCELLATION",
               "value": "false"
             },
             {
