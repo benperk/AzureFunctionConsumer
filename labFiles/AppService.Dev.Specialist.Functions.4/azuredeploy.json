@@ -100,7 +100,7 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "1"
+              "value": "0"
             },
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
