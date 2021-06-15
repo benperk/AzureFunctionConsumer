@@ -107,10 +107,6 @@
               "value": "~3"
             },
             {
-              "name": "VERB",
-              "value": "post,get"
-            },
-            {
               "name": "TIMER_FUNCTION_GO",
               "value": "true"
             },
