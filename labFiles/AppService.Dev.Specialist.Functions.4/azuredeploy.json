@@ -111,6 +111,10 @@
               "value": "true"
             },
             {
+              "name": "HTTP_FUNCTION_CANCEL",
+              "value": "false"
+            },
+            {
               "name": "AzureFunctionsWebHost__hostid",
               "value": "[concat(variables('functionAppName'), '-hostid')]"
             },
