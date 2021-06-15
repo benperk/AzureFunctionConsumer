@@ -133,7 +133,7 @@
           ]
         }
       },
-       "resources": [
+      "resources": [
         {
           "name": "zipdeploy",
           "type": "Extensions",
@@ -145,7 +145,7 @@
             "packageUri": "[parameters('zipdeployPackageUrl')]"
           }
         }
-     ]
-   }
- ]
+      ]
+    }
+  ]
 }
