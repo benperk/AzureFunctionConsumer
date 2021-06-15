@@ -111,10 +111,6 @@
               "value": "post,get"
             },
             {
-              "name": "ROUTE",
-              "value": "csharpguitar"
-            },
-            {
               "name": "TIMER_FUNCTION_GO",
               "value": "true"
             },
