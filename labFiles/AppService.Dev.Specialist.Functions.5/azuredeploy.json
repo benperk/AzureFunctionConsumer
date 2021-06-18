@@ -111,6 +111,10 @@
               "value": "true"
             },
             {
+              "name": "TIMER_FUNCTION_SCHEDULE",
+              "value": "0 */1 * * * *"
+            },
+            {
               "name": "HTTP_TRIGGER_CANCELLATION",
               "value": "false"
             },
