@@ -106,11 +106,11 @@ namespace dev_assessment
                         try
                         {
                             Thread.Sleep(5000);
-                            throw new StackOverflowException("Explain what can cause a stack overflow exception");
+                            throw new FunctionInvocationException("Explain what can cause a stack overflow exception");
                         }
-                        catch (StackOverflowException soe)
+                        catch (FunctionInvocationException fie)
                         {
-                            log.LogInformation($"A {soe.GetType()} was thrown.  Was this a hanlded or unhandled exception?");
+                            log.LogInformation($"A {fie.GetType()} was thrown.  Was this a hanlded or unhandled exception?");
                             log.LogInformation($"C# Timer trigger function completed execution at: {DateTime.Now} for scenario 'delta'");
                         }
                     }
@@ -118,7 +118,7 @@ namespace dev_assessment
                     {
                         log.LogInformation($"C# Timer trigger function started execution at: {DateTime.Now} for scenario 'epsilon'");
                         Thread.Sleep(10000);
-                        throw new OutOfMemoryException("Ouch!  Was this a handled or unhandled exception?");
+                        throw new FunctionInvocationException("Ouch!  Was this a handled or unhandled exception?");
                         //code execution will cease before logging this, why?
                         log.LogInformation($"C# Timer trigger function completed execution at: {DateTime.Now} for scenario 'epsilon'");
                     }
