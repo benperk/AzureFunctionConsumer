@@ -115,7 +115,7 @@ namespace AzureFunctionConsumer
             WriteLine("2.  Storage Queue");
             WriteLine("3.  Blob Storage");
             WriteLine("4.  Service Bus");
-            WriteLine("5.  Cosomos DB");
+            WriteLine("5.  Cosmos DB");
             WriteLine("6.  HTTP Trigger");
             WriteLine("7.  Event Grid");
             WriteLine("8.  Table Storage");
