@@ -32,10 +32,12 @@ namespace AzureFunctionConsumer
         private static IQueueClient queueClient;
         private static DocumentClient documentClient;
         private static CloudTableClient tableStorageClient;
+
         static Program()
         {
             httpClient = new HttpClient();
         }
+
         static void Main(string[] args)
         {
             bool keepGoing = true;
@@ -108,6 +110,7 @@ namespace AzureFunctionConsumer
                 WriteLine($"Well...something happend that wasn't expected, specifically: {ex.Message}");
             }
         }
+
         static public int DisplayMenu()
         {
             WriteLine();
@@ -128,6 +131,7 @@ namespace AzureFunctionConsumer
             var result = ReadLine();
             return ToInt32(result);
         }
+
         #region Blob Storage
         //Use the Event Grid trigger instead of the Blob storage trigger for high consumption blob-only storage accounts
         private static async Task MainBlobStorageAsync(string[] args)
