@@ -20,6 +20,7 @@ using Microsoft.WindowsAzure.Storage.Table;
 
 using Newtonsoft.Json;
 using System.Linq;
+using AzureFunctionConsumer.Wrappers;
 
 namespace AzureFunctionConsumer
 {
@@ -29,7 +30,7 @@ namespace AzureFunctionConsumer
         private static CloudQueue storageAccountQueue;
         private static EventHubClient eventHubClient;
         private static HttpClient httpClient;
-        private static IQueueClient queueClient;
+        private static ServiceBusClientWrapper serviceBusClient;
         private static DocumentClient documentClient;
         private static CloudTableClient tableStorageClient;
 
@@ -646,53 +647,107 @@ namespace AzureFunctionConsumer
                 WriteLine("Enter your Service Bus connection string:");
                 ServiceBusConnectionString = ReadLine();
             }
-            WriteLine("Enter your Queue name:");
-            var QueueName = ReadLine();
-            while (QueueName.Length == 0)
+
+            // Determine whether we are sending to a Topic or Queue
+            WriteLine($"Do you wish to send a message to a Queue or Topic?");
+            WriteLine("Press Q for Queue or T for Topic");
+
+            string messageType = ReadLine().ToLower();
+            while (! (new string[] {"q", "t"}).Contains(messageType))
+            {
+                WriteLine("Unrecognized value. Enter Q for Queue or T for Topic.");
+                messageType = ReadLine().ToLower();
+            }
+            string messageTypeFriendly = messageType == "q" ? "Queue" : "Topic";
+
+            WriteLine($"Enter the name of your {messageTypeFriendly}: ");
+
+            string queueOrTopicname = ReadLine();
+            while (queueOrTopicname.Length == 0)
             {
                 WriteLine("Try again, this value must have a length > 0");
-                WriteLine("Enter yourQueue name:");
-                QueueName = ReadLine();
+                WriteLine($"Enter the name of your {messageTypeFriendly}: ");
+                queueOrTopicname = ReadLine();
             }
-            WriteLine("Enter number of messages to add: ");
+
+            WriteLine("Enter number of messages to send: ");
             int ServiceBusMessagesToSend = 0;
             while (!int.TryParse(ReadLine(), out ServiceBusMessagesToSend))
             {
                 WriteLine("Try again, this value must be numeric.");
             }
-            queueClient = new QueueClient(ServiceBusConnectionString, QueueName);
-            await SendMessagesToServicebus(ServiceBusMessagesToSend);
-            await queueClient.CloseAsync();
-        }
-        private static async Task SendMessagesToServicebus(int numMessagesToSend)
-        {
-            for (var i = 0; i < numMessagesToSend; i++)
+
+            serviceBusClient = new ServiceBusClientWrapper(ServiceBusConnectionString);
+
+            if(messageType == "q")
             {
-                try
+                await serviceBusClient.SendMessagesToQueue(queueOrTopicname, Convert.ToUInt32(ServiceBusMessagesToSend));
+            } else
+            {
+                // Prompt for properties
+                WriteLine("Do you wish to add custom properties to your messages?");
+                WriteLine("If so, enter your properties and values as a key-value pair separated by the ':' character.");
+                WriteLine("For example, to enter a property with name 'CustomProp' and value 'Example', type 'CustomProp:Example'");
+                WriteLine("If you do not wish to enter custom properties, or are finished adding properties, simply press enter on an empty line.");
+
+                Dictionary<string, object> customProperties = new Dictionary<string, object>();
+                string customPropValue = ReadLine();
+                bool isEmpty = string.IsNullOrEmpty(customPropValue) || string.IsNullOrWhiteSpace(customPropValue);
+                
+                while(!isEmpty)
                 {
-                    var messageBody = $"Message-{i}-{Guid.NewGuid().ToString("N")}-{DateTime.Now.Minute}";
-                    WriteLine($"Sending message: {messageBody}");
-                    var message = new Message(Encoding.UTF8.GetBytes(messageBody));
-                    await queueClient.SendAsync(message);
-                }
-                catch (ServiceBusTimeoutException sbte)
-                {
-                    WriteLine($"ServiceBusTimeoutException: {sbte.Message}");
-                }
-                catch (ServiceBusException sbe)
-                {
-                    WriteLine($"ServiceBusException: {sbe.Message}");
-                }
-                catch (Exception ex)
-                {
-                    WriteLine($"{DateTime.Now} > Exception: {ex.Message}");
+                    string[] splitProp = customPropValue.Split(':');
+
+                    if(splitProp.Length != 2)
+                    {
+                        WriteLine("Please enter properties as a key-value pair, separated by a ':' character.");
+                    } else
+                    {
+                        customProperties.Add(splitProp[0], splitProp[1]);
+                    }
+
+                    customPropValue = ReadLine();
+                    isEmpty = string.IsNullOrEmpty(customPropValue) || string.IsNullOrWhiteSpace(customPropValue);
                 }
 
-                await Task.Delay(10);
+                await serviceBusClient.SendMessagesToTopic(
+                    queueOrTopicname, customProperties, Convert.ToUInt32(ServiceBusMessagesToSend));
             }
 
-            WriteLine($"{numMessagesToSend} messages sent.");
+            await serviceBusClient.DisposeAsync();
         }
+
+        
+
+        //private static async Task SendMessagesToServicebus(int numMessagesToSend)
+        //{
+        //    for (var i = 0; i < numMessagesToSend; i++)
+        //    {
+        //        try
+        //        {
+        //            var messageBody = $"Message-{i}-{Guid.NewGuid().ToString("N")}-{DateTime.Now.Minute}";
+        //            WriteLine($"Sending message: {messageBody}");
+        //            var message = new Message(Encoding.UTF8.GetBytes(messageBody));
+        //            await queueClient.SendAsync(message);
+        //        }
+        //        catch (ServiceBusTimeoutException sbte)
+        //        {
+        //            WriteLine($"ServiceBusTimeoutException: {sbte.Message}");
+        //        }
+        //        catch (ServiceBusException sbe)
+        //        {
+        //            WriteLine($"ServiceBusException: {sbe.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            WriteLine($"{DateTime.Now} > Exception: {ex.Message}");
+        //        }
+
+        //        await Task.Delay(10);
+        //    }
+
+        //    WriteLine($"{numMessagesToSend} messages sent.");
+        //}
         #endregion
         #region CosmosDB
         private static async Task MainCosmosDBAsync(string[] args)
