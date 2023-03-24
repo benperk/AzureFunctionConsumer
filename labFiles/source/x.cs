@@ -15,7 +15,7 @@ namespace dev_assessment
     // What this means is that if you need to create a new csharpguitar-elx.zip, modify Function 'z' so it always returns a 200 
     public static class x
     {
-        [Disable("BLOB_FUNCTION_GO")]
+        ("BLOB_FUNCTION_GO")
         [FunctionName("x")]
         public static void Run([BlobTrigger("elx/{name}", Connection = "BLOB_CONNECTION")]Stream myBlob, string name, ILogger log, Uri uri, IDictionary<string, string> metadata)
         {
